@@ -104,7 +104,7 @@ with col1:
 with col2:
     st.markdown("""
         <div class="grade-card">
-            <h4>ชั้นมัธยมศึกษาปีที่ 2</h4>
+            <h4>ชั้นมัธยมศึกษาปีที่ 22</h4>
             <div class="card-title">คะแนน</div>
             <a href="https://docs.google.com/spreadsheets/d/1XUU74c_xTI_l0AOVm0Q8doWV3LzbH2KH/edit?gid=1438887448#gid=1438887448" target="_blank" class="link-btn">คลิก ลิงก์</a>
         </div>
