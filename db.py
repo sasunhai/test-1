@@ -8,41 +8,45 @@ load_dotenv()
 
 
 # ============================================================
-# Google Sheets API Connection
+# Google Sheets API Connection (Using API Key / User Token)
 # ============================================================
 def get_gspread_client():
     """
-    Connects to Google Sheets using Streamlit Secrets (for Streamlit Cloud) 
-    or falls back to a local service_account.json file.
+    Initializes gspread using a Google Cloud API Key / Token.
+    Checks Streamlit Secrets first, then falls back to environment variables (.env).
     """
+    api_key = None
+
+    # 1. Try reading from Streamlit Secrets
     try:
         import streamlit as st
-        # 1. Try reading from Streamlit Secrets
-        if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
-            credentials_dict = dict(st.secrets["gcp_service_account"])
-            return gspread.service_account_from_dict(credentials_dict)
+        if hasattr(st, "secrets") and "GCP_API_KEY" in st.secrets:
+            api_key = st.secrets["GCP_API_KEY"]
     except Exception:
         pass
 
-    # 2. Fallback to local service_account.json
-    json_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH", "service_account.json")
-    if not os.path.exists(json_path):
-        raise FileNotFoundError(
-            f"ไม่พบไฟล์ Credentials: '{json_path}' กรุณาตรวจสอบว่ามีไฟล์ service_account.json ในโฟลเดอร์โปรเจกต์"
+    # 2. Fallback to local environment variable (.env)
+    if not api_key:
+        api_key = os.getenv("GCP_API_KEY", "").strip()
+
+    if not api_key:
+        raise ValueError(
+            "❌ Missing API Token: Please set 'GCP_API_KEY' in your .env file or Streamlit secrets."
         )
-    return gspread.service_account(filename=json_path)
+
+    # Authenticate gspread with API Key / Token
+    return gspread.api_key(api_key)
 
 
 def get_spreadsheet():
     """
-    Opens the target spreadsheet using URL or Sheet Name 
-    from Streamlit Secrets or Environment Variables.
+    Opens the target spreadsheet using URL or Sheet Name.
+    Requires the spreadsheet to be shared as "Anyone with the link can view".
     """
     gc = get_gspread_client()
     sheet_url = ""
     sheet_name = "SchoolDatabase"
 
-    # Try reading configuration from Streamlit Secrets first
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
@@ -51,7 +55,6 @@ def get_spreadsheet():
     except Exception:
         pass
 
-    # Fallback to .env values if missing in st.secrets
     if not sheet_url:
         sheet_url = os.getenv("GOOGLE_SHEETS_URL", "").strip()
     if not sheet_name:
@@ -68,7 +71,7 @@ def get_spreadsheet():
 # ============================================================
 def get_user_by_username(username: str):
     """
-    ดึงข้อมูลผู้ใช้จาก Google Sheets โดยทำการตัดช่องว่างและเทียบเคียงแบบ Case-insensitive
+    ดึงข้อมูลผู้ใช้จาก Google Sheets (Read-Only Operation - Works with API Key)
     """
     try:
         sh = get_spreadsheet()
@@ -98,22 +101,22 @@ def get_user_by_username(username: str):
 
 def touch_last_login(username: str):
     """
-    อัปเดตเวลาเข้าใช้งานล่าสุดของผู้ใช้ในคอลัมน์ H (last_login)
+    ⚠️ NOTE: Requires write permissions. Will fail if using a read-only API Key.
     """
     try:
         sh = get_spreadsheet()
         ws = sh.worksheet("users")
-        cell = ws.find(username.strip(), in_column=2)  # คอลัมน์ B คือ username
+        cell = ws.find(username.strip(), in_column=2)
         if cell:
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ws.update_cell(cell.row, 8, now_str)  # คอลัมน์ H คือ last_login
+            ws.update_cell(cell.row, 8, now_str)
     except Exception as e:
-        print(f"[DEBUG] Error updating last login: {e}")
+        print(f"[DEBUG] Error updating last login (Write operation failed): {e}")
 
 
 def write_login_log(username: str, success: bool):
     """
-    บันทึกประวัติการเข้าสู่ระบบลงใน Worksheet 'login_logs'
+    ⚠️ NOTE: Requires write permissions. Will fail if using a read-only API Key.
     """
     try:
         sh = get_spreadsheet()
@@ -123,12 +126,12 @@ def write_login_log(username: str, success: bool):
         
         ws.append_row([log_id, username, "TRUE" if success else "FALSE", now_str])
     except Exception as e:
-        print(f"[DEBUG] Error writing login log: {e}")
+        print(f"[DEBUG] Error writing login log (Write operation failed): {e}")
 
 
 def authenticate(username: str, password: str):
     """
-    ตรวจสอบชื่อผู้ใช้และรหัสผ่านแบบ Plain text (ตรงๆ)
+    ตรวจสอบชื่อผู้ใช้และรหัสผ่านแบบ Plain text
     """
     user = get_user_by_username(username)
 
@@ -140,7 +143,6 @@ def authenticate(username: str, password: str):
         write_login_log(username, False)
         return None, "บัญชีนี้ถูกระงับการใช้งาน"
 
-    # เปรียบเทียบรหัสผ่านตรงๆ (Plain Text)
     stored_password = str(user.get("password_hash", "")).strip()
     if password.strip() != stored_password:
         write_login_log(username, False)
@@ -149,14 +151,13 @@ def authenticate(username: str, password: str):
     touch_last_login(username)
     write_login_log(username, True)
     
-    # ลบข้อมูลรหัสผ่านออกก่อนส่งกลับ Session เพื่อความสะอาดของวัตถุ
     user.pop("password_hash", None)
     return user, None
 
 
 def create_user(username, password, full_name, role="student", grade_level=None):
     """
-    สร้างผู้ใช้งานโดยบันทึกรหัสผ่านเป็น Plain text ลงคอลัมน์ C
+    ⚠️ NOTE: Requires write permissions. Will fail if using a read-only API Key.
     """
     try:
         sh = get_spreadsheet()
@@ -177,7 +178,7 @@ def create_user(username, password, full_name, role="student", grade_level=None)
         new_row = [
             user_id,
             username.strip(),
-            password.strip(),  # บันทึกรหัสผ่าน Plain text ตรงๆ
+            password.strip(),
             full_name.strip(),
             role,
             grade_level if grade_level else "",
@@ -189,7 +190,7 @@ def create_user(username, password, full_name, role="student", grade_level=None)
         return user_id
 
     except gspread.exceptions.SpreadsheetNotFound:
-        print("❌ ข้อผิดพลาด: ไม่พบ Google Sheet ตามชื่อหรือ URL ที่ระบุในไฟล์ .env")
+        print("❌ ข้อผิดพลาด: ไม่พบ Google Sheet ตามชื่อหรือ URL ที่ระบุ")
         return None
     except Exception as e:
         print(f"❌ เกิดข้อผิดพลาดแบบไม่คาดคิด ({type(e).__name__}): {e}")
