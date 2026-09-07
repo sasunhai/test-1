@@ -12,16 +12,19 @@ load_dotenv()
 # ============================================================
 def get_gspread_client():
     """
-    รองรับทั้ง st.secrets (สำหรับ Streamlit Cloud) 
-    และไฟล์ service_account.json (สำหรับการใช้งานแบบ Local)
+    Connects to Google Sheets using Streamlit Secrets (for Streamlit Cloud) 
+    or falls back to a local service_account.json file.
     """
     try:
         import streamlit as st
+        # 1. Try reading from Streamlit Secrets
         if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
-            return gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+            credentials_dict = dict(st.secrets["gcp_service_account"])
+            return gspread.service_account_from_dict(credentials_dict)
     except Exception:
         pass
 
+    # 2. Fallback to local service_account.json
     json_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH", "service_account.json")
     if not os.path.exists(json_path):
         raise FileNotFoundError(
@@ -31,12 +34,32 @@ def get_gspread_client():
 
 
 def get_spreadsheet():
+    """
+    Opens the target spreadsheet using URL or Sheet Name 
+    from Streamlit Secrets or Environment Variables.
+    """
     gc = get_gspread_client()
-    sheet_url = os.getenv("GOOGLE_SHEETS_URL", "").strip()
+    sheet_url = ""
+    sheet_name = "SchoolDatabase"
+
+    # Try reading configuration from Streamlit Secrets first
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            sheet_url = st.secrets.get("GOOGLE_SHEETS_URL", "")
+            sheet_name = st.secrets.get("GOOGLE_SHEETS_NAME", sheet_name)
+    except Exception:
+        pass
+
+    # Fallback to .env values if missing in st.secrets
+    if not sheet_url:
+        sheet_url = os.getenv("GOOGLE_SHEETS_URL", "").strip()
+    if not sheet_name:
+        sheet_name = os.getenv("GOOGLE_SHEETS_NAME", "SchoolDatabase").strip()
+
     if sheet_url:
         return gc.open_by_url(sheet_url)
     
-    sheet_name = os.getenv("GOOGLE_SHEETS_NAME", "SchoolDatabase").strip()
     return gc.open(sheet_name)
 
 
@@ -74,6 +97,9 @@ def get_user_by_username(username: str):
 
 
 def touch_last_login(username: str):
+    """
+    อัปเดตเวลาเข้าใช้งานล่าสุดของผู้ใช้ในคอลัมน์ H (last_login)
+    """
     try:
         sh = get_spreadsheet()
         ws = sh.worksheet("users")
@@ -86,6 +112,9 @@ def touch_last_login(username: str):
 
 
 def write_login_log(username: str, success: bool):
+    """
+    บันทึกประวัติการเข้าสู่ระบบลงใน Worksheet 'login_logs'
+    """
     try:
         sh = get_spreadsheet()
         ws = sh.worksheet("login_logs")
@@ -98,7 +127,9 @@ def write_login_log(username: str, success: bool):
 
 
 def authenticate(username: str, password: str):
-    """ตรวจสอบชื่อผู้ใช้และรหัสผ่านแบบ Plain text (ตรงๆ)"""
+    """
+    ตรวจสอบชื่อผู้ใช้และรหัสผ่านแบบ Plain text (ตรงๆ)
+    """
     user = get_user_by_username(username)
 
     if user is None:
@@ -124,7 +155,9 @@ def authenticate(username: str, password: str):
 
 
 def create_user(username, password, full_name, role="student", grade_level=None):
-    """สร้างผู้ใช้งานโดยบันทึกรหัสผ่านเป็น Plain text ลงคอลัมน์ C"""
+    """
+    สร้างผู้ใช้งานโดยบันทึกรหัสผ่านเป็น Plain text ลงคอลัมน์ C
+    """
     try:
         sh = get_spreadsheet()
         
