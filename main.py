@@ -1,5 +1,5 @@
 import streamlit as st
-from db import authenticate
+from db import authenticate, create_user
 
 st.set_page_config(
     page_title="เช็คคะแนน | โรงเรียนบ้านสระบัว",
@@ -153,6 +153,8 @@ with st.sidebar:
 # ------------------------------------------------------------
 # Page Routing
 # ------------------------------------------------------------
+
+# 1. HOME PAGE
 if st.session_state.current_page == "home":
     col_head1, col_head2 = st.columns([3, 1])
 
@@ -210,8 +212,59 @@ if st.session_state.current_page == "home":
                 </div>
             """, unsafe_allow_html=True)
 
+# 2. USERS MANAGEMENT PAGE
 elif st.session_state.current_page == "users":
     st.title("⚙️ จัดการผู้ใช้")
-    st.caption("ส่วนผู้ดูแลระบบสำหรับการจัดการบัญชีผู้ใช้งาน")
+    st.caption("เพิ่มผู้ใช้งานใหม่เข้าสู่ระบบ Google Sheets")
     st.divider()
-    st.info("อยู่ในช่วงการพัฒนาเมนูจัดการผู้ใช้")
+
+    # Guard Clause: Only Teachers and Admins can access
+    if user.get("role") not in ("teacher", "admin"):
+        st.error("❌ คุณไม่มีสิทธิ์เข้าถึงหน้านี้")
+        st.stop()
+
+    st.subheader("➕ เพิ่มบัญชีผู้ใช้งานใหม่")
+
+    with st.form("create_user_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            new_username = st.text_input("ชื่อผู้ใช้ (Username)", placeholder="เช่น std101")
+            new_password = st.text_input("รหัสผ่าน (Password)", type="password", placeholder="กำหนดรหัสผ่าน")
+            new_fullname = st.text_input("ชื่อ-นามสกุล", placeholder="เช่น ด.ช. สมชาย ใจดี")
+
+        with col2:
+            new_role = st.selectbox(
+                "สิทธิ์ผู้ใช้งาน (Role)",
+                options=["student", "teacher", "admin"],
+                format_func=lambda x: role_label.get(x, x)
+            )
+
+            # Show grade choice only when role is 'student'
+            grade_level = None
+            if new_role == "student":
+                grade_level = st.selectbox(
+                    "ระดับชั้นมัธยมศึกษา",
+                    options=[1, 2, 3],
+                    format_func=lambda x: f"มัธยมศึกษาปีที่ {x}"
+                )
+
+        submit_user = st.form_submit_button("➕ สร้างบัญชีผู้ใช้", type="primary", use_container_width=True)
+
+    if submit_user:
+        if not new_username or not new_password or not new_fullname:
+            st.warning("⚠️ กรุณากรอกข้อมูลที่จำเป็น (ชื่อผู้ใช้, รหัสผ่าน, และชื่อ-นามสกุล) ให้ครบถ้วน")
+        else:
+            with st.spinner("กำลังบันทึกข้อมูลผู้ใช้ลงในระบบ..."):
+                user_id = create_user(
+                    username=new_username.strip(),
+                    password=new_password.strip(),
+                    full_name=new_fullname.strip(),
+                    role=new_role,
+                    grade_level=grade_level if new_role == "student" else None
+                )
+
+                if user_id:
+                    st.success(f"✅ เพิ่มผู้ใช้ '{new_fullname}' (Username: {new_username}) สำเร็จเรียบร้อยแล้ว!")
+                else:
+                    st.error("❌ เกิดข้อผิดพลาด ไม่สามารถสร้างผู้ใช้ได้ (ชื่อผู้ใช้นี้อาจมีอยู่ในระบบแล้ว หรือเกิดปัญหากับ Google Sheets)")
