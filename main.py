@@ -145,6 +145,11 @@ with st.sidebar:
             st.session_state.current_page = "users"
             st.rerun()
 
+    # 📌 New Sample Page Navigation
+    if st.button("🧪 หน้าทดสอบ (Test 1)", use_container_width=True, type="primary" if st.session_state.current_page == "test1" else "secondary"):
+        st.session_state.current_page = "test1"
+        st.rerun()
+
     st.divider()
     if st.button("🚪 ออกจากระบบ", use_container_width=True):
         do_logout()
@@ -218,7 +223,6 @@ elif st.session_state.current_page == "users":
     st.caption("เพิ่มผู้ใช้งานใหม่เข้าสู่ระบบ Google Sheets")
     st.divider()
 
-    # Guard Clause: Only Teachers and Admins can access
     if user.get("role") not in ("teacher", "admin"):
         st.error("❌ คุณไม่มีสิทธิ์เข้าถึงหน้านี้")
         st.stop()
@@ -240,7 +244,6 @@ elif st.session_state.current_page == "users":
                 format_func=lambda x: role_label.get(x, x)
             )
 
-            # Show grade choice only when role is 'student'
             grade_level = None
             if new_role == "student":
                 grade_level = st.selectbox(
@@ -267,4 +270,34 @@ elif st.session_state.current_page == "users":
                 if user_id:
                     st.success(f"✅ เพิ่มผู้ใช้ '{new_fullname}' (Username: {new_username}) สำเร็จเรียบร้อยแล้ว!")
                 else:
-                    st.error("❌ เกิดข้อผิดพลาด ไม่สามารถสร้างผู้ใช้ได้ (ชื่อผู้ใช้นี้อาจมีอยู่ในระบบแล้ว หรือเกิดปัญหากับ Google Sheets)")
+                    st.error("❌ เกิดข้อผิดพลาด ไม่สามารถสร้างผู้ใช้ได้")
+
+# 3. SAMPLE PAGE (TEST 1)
+elif st.session_state.current_page == "test1":
+    st.title("🧪 หน้าทดสอบ 1 (Sample Test Page)")
+    st.caption("ตัวอย่างการเพิ่มหน้าใหม่และการจัดการองค์ประกอบ Streamlit")
+    st.divider()
+
+    st.success("👋 ยินดีต้อนรับสู่หน้าทดสอบระบบ!")
+
+    # Summary Metrics Row
+    m1, m2, m3 = st.columns(3)
+    m1.metric(label="คะแนนเฉลี่ยรวม", value="85.4 %", delta="2.1 %")
+    m2.metric(label="ส่งงานตรงเวลา", value="92 %", delta="-0.5 %")
+    m3.metric(label="จำนวนนักเรียนทั้งหมด", value="120 คน", delta="3 คน")
+
+    st.divider()
+
+    # Interactive Sample Inputs
+    st.subheader("📝 แบบฟอร์มทดสอบ")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        test_subject = st.selectbox("เลือกรายวิชา", ["วิทยาศาสตร์", "คณิตศาสตร์", "ภาษาไทย", "ภาษาอังกฤษ"])
+        test_score = st.slider("กำหนดคะแนนทดสอบ", min_value=0, max_value=100, value=75)
+
+    with col_b:
+        test_note = st.text_area("หมายเหตุเพิ่มเติม", placeholder="กรอกข้อความทดสอบที่นี่...")
+
+    if st.button("💾 บันทึกข้อมูลทดสอบ", type="primary"):
+        st.info(f"📌 **บันทึกสำเร็จ:** วิชา {test_subject} | คะแนน: {test_score} | หมายเหตุ: {test_note or 'ไม่มี'}")
