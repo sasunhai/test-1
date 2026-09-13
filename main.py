@@ -188,7 +188,7 @@ if st.session_state.current_page == "home":
     """, unsafe_allow_html=True)
 
     GRADE_LINKS = {
-        1: None,
+        1: "https://docs.google.com/spreadsheets/d/1bdT82VaS4b2W27OXvYWH2UCVpeO53vyt/edit?usp=sharing&ouid=114188046857795965715&rtpof=true&sd=true",
         2: "https://docs.google.com/spreadsheets/d/1XUU74c_xTI_l0AOVm0Q8doWV3LzbH2KH/edit?gid=1438887448#gid=1438887448",
         3: "https://docs.google.com/spreadsheets/d/1ckVJD_BOCdFqQ1IlClHunktVbzwUgWHG/edit?gid=1172977025#gid=1172977025",
     }
@@ -247,7 +247,7 @@ elif st.session_state.current_page == "users":
             grade_level = None
             if new_role == "student":
                 grade_level = st.selectbox(
-                    "ระดับชั้นมัธยมศึกษา",
+                    "ระดับชั้นมัธยมศึกษาxx",
                     options=[1, 2, 3],
                     format_func=lambda x: f"มัธยมศึกษาปีที่ {x}"
                 )
@@ -293,7 +293,7 @@ elif st.session_state.current_page == "test1":
     col_a, col_b = st.columns(2)
 
     with col_a:
-        test_subject = st.selectbox("เลือกรายวิชา", ["วิทยาศาสตร์", "คณิตศาสตร์", "ภาษาไทย", "ภาษาอังกฤษ"])
+        test_subject = st.selectbox("เลือกรายวิชา", ["วิทยาศาสตร์", "คณิตศาสตร์", "ภาษาไทย", "ภาษาอังกฤษ","ภาษาอังกฤษ1"])
         test_score = st.slider("กำหนดคะแนนทดสอบ", min_value=0, max_value=100, value=75)
 
     with col_b:
